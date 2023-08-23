@@ -22,3 +22,50 @@ variable "argocd_secret_manager_name_suffix" {
   default     = "argocd-admin-secret"
 }
 
+variable "workload_repo_url" {
+  type        = string
+  description = "Git repo URL for the ArgoCD workload deployment"
+  default     = "https://github.com/aws-samples/eks-blueprints-workloads.git"
+}
+
+variable "workload_repo_secret" {
+  type        = string
+  description = "Secret Manager secret name for hosting Github SSH-Key to Access private repository"
+  default     = "github-blueprint-ssh-key"
+}
+
+variable "workload_repo_revision" {
+  type        = string
+  description = "Git repo revision in workload_repo_url for the ArgoCD workload deployment"
+  default     = "main"
+}
+
+variable "workload_repo_path" {
+  type        = string
+  description = "Git repo path in workload_repo_url for the ArgoCD workload deployment"
+  default     = "envs/dev"
+}
+
+variable "addons_repo_url" {
+  type        = string
+  description = "Git repo URL for the ArgoCD addons deployment"
+  default     = "https://github.com/aws-samples/eks-blueprints-add-ons.git"
+}
+
+# variable "argocd_route53_weight" {
+#   description = "The Route53 weighted records weight for argocd application"
+#   type        = string
+#   default     = "0"
+# }
+
+# variable "ecsfrontend_route53_weight" {
+#   description = "The Route53 weighted records weight for ecsdeo-frontend application"
+#   type        = string
+#   default     = "0"
+# }
+
+# variable "route53_weight" {
+#   description = "The Route53 weighted records weight for others application"
+#   type        = string
+#   default     = "0"
+# }

@@ -1,14 +1,14 @@
 resource "aws_security_group" "es" {
-  name = "${local.name}-es-sg"
+  name        = "${local.name}-es-sg"
   description = "Allow inbound traffic to ElasticSearch from VPC CIDR"
-  vpc_id = module.vpc.vpc_id
+  vpc_id      = module.vpc.vpc_id
   ingress {
-      from_port = 0
-      to_port = 0
-      protocol = "-1"
-      cidr_blocks = [
-          module.vpc.vpc_cidr_block
-      ]
+    from_port = 0
+    to_port   = 0
+    protocol  = "-1"
+    cidr_blocks = [
+      module.vpc.vpc_cidr_block
+    ]
   }
 }
 
@@ -18,29 +18,29 @@ resource "aws_security_group" "es" {
 #}
 
 resource "aws_elasticsearch_domain" "es" {
-  domain_name = local.name
+  domain_name           = local.name
   elasticsearch_version = "7.7"
   cluster_config {
-      instance_count = 3
-      instance_type = "r5.large.elasticsearch"
-      zone_awareness_enabled = true
-      zone_awareness_config {
-        availability_zone_count = 3
-      }
+    instance_count         = 3
+    instance_type          = "r5.large.elasticsearch"
+    zone_awareness_enabled = true
+    zone_awareness_config {
+      availability_zone_count = 3
+    }
   }
   vpc_options {
-      subnet_ids = [
-        module.vpc.private_subnets[0],
-        module.vpc.private_subnets[1],
-        module.vpc.private_subnets[2]
-      ]
-      security_group_ids = [
-          aws_security_group.es.id
-      ]
+    subnet_ids = [
+      module.vpc.private_subnets[0],
+      module.vpc.private_subnets[1],
+      module.vpc.private_subnets[2]
+    ]
+    security_group_ids = [
+      aws_security_group.es.id
+    ]
   }
   ebs_options {
-      ebs_enabled = true
-      volume_size = 100
+    ebs_enabled = true
+    volume_size = 100
   }
   access_policies = <<CONFIG
 {
@@ -56,15 +56,17 @@ resource "aws_elasticsearch_domain" "es" {
 }
   CONFIG
   snapshot_options {
-      automated_snapshot_start_hour = 23
+    automated_snapshot_start_hour = 23
   }
   tags = {
-      Domain = local.name
+    Domain = local.name
   }
 }
 output "elk_endpoint" {
-  value = aws_elasticsearch_domain.es.endpoint
+  description = "Endpoint of the elasticsearch domain"
+  value       = aws_elasticsearch_domain.es.endpoint
 }
 output "elk_kibana_endpoint" {
-  value = aws_elasticsearch_domain.es.kibana_endpoint
+  description = "Endpoint of the elasticsearch Kibana endpoint"
+  value       = aws_elasticsearch_domain.es.kibana_endpoint
 }

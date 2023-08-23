@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: bootstrap-control-plane-addons
+  namespace: 'argocd'
+spec:
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: 'argocd'
+  project: default
+  source:
+    path: bootstrap/control-plane/addons
+    repoURL: https://github.com/allamand/gitops-bridge-argocd-control-plane-template
+    directory:
+      recurse: true
+      exclude: exclude/*
+  syncPolicy:
+    automated: {}

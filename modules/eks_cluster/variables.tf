@@ -21,6 +21,12 @@ variable "workload_repo_url" {
   default     = "https://github.com/aws-samples/eks-blueprints-workloads.git"
 }
 
+variable "workload_repo_secret" {
+  type        = string
+  description = "Secret Manager secret name for hosting Github SSH-Key to Access private repository"
+  default     = "github-blueprint-ssh-key"
+}
+
 variable "workload_repo_revision" {
   type        = string
   description = "Git repo revision in workload_repo_url for the ArgoCD workload deployment"
@@ -56,5 +62,3 @@ variable "argocd_secret_manager_name_suffix" {
   description = "Name of secret manager secret for ArgoCD Admin UI Password"
   default     = "argocd-admin-secret"
 }
-
-

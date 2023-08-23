@@ -87,7 +87,7 @@ module "alb" {
 
   vpc_id  = module.vpc.vpc_id
   subnets = module.vpc.public_subnets
-  #security_groups = [module.vpc.default_security_group_id]
+
   security_group_rules = {
     ingress_all_http = {
       type        = "ingress"
@@ -98,10 +98,10 @@ module "alb" {
       cidr_blocks = ["0.0.0.0/0"]
     }
     egress_all = {
-      type        = "egress"
-      from_port   = 0
-      to_port     = 0
-      protocol    = "-1"
+      type      = "egress"
+      from_port = 0
+      to_port   = 0
+      protocol  = "-1"
       #cidr_blocks = [for s in module.vpc.private_subnets_cidr_blocks : s.cidr_block]
       cidr_blocks = ["0.0.0.0/0"]
     }
@@ -109,19 +109,19 @@ module "alb" {
 
   http_tcp_listeners = [
     {
-      port                = "80"
-      protocol            = "HTTP"
-      action_type         = "forward"
+      port        = "80"
+      protocol    = "HTTP"
+      action_type = "forward"
     },
   ]
 
   target_groups = [
     {
-      name                    = "${local.name}-tg-blue"
-      backend_protocol        = "HTTP"
-      backend_port            = "80"
-      target_type             = "ip"
-      deregistration_delay    = 10      
+      name                 = "${local.name}-tg-blue"
+      backend_protocol     = "HTTP"
+      backend_port         = "80"
+      target_type          = "ip"
+      deregistration_delay = 10
       health_check = {
         path    = "/healthz"
         port    = "80"
@@ -129,17 +129,17 @@ module "alb" {
       }
     },
     {
-      name                    = "${local.name}-tg-green"
-      backend_protocol        = "HTTP"
-      backend_port            = "80"
-      target_type             = "ip"
-      deregistration_delay    = 10      
+      name                 = "${local.name}-tg-green"
+      backend_protocol     = "HTTP"
+      backend_port         = "80"
+      target_type          = "ip"
+      deregistration_delay = 10
       health_check = {
         path    = "/healthz"
         port    = "80"
         matcher = "200-299"
       }
-    },    
+    },
   ]
 
   http_tcp_listener_rules = [
@@ -170,5 +170,3 @@ module "alb" {
 
   tags = local.tags
 }
-
-

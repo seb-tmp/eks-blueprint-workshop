@@ -4,7 +4,7 @@ provider "aws" {
   alias  = "virginia"
 }
 
-data "aws_partition" "current" {}
+#data "aws_partition" "current" {}
 
 # Find the user currently in use by AWS
 data "aws_caller_identity" "current" {}
@@ -46,6 +46,11 @@ resource "aws_ec2_tag" "public_subnets" {
   key         = "kubernetes.io/cluster/${local.environment}-${local.service}"
   value       = "shared"
 }
+
+################################################################################
+# AWS Secret Manager for argocd password
+################################################################################
+
 data "aws_secretsmanager_secret" "argocd" {
   name = "${local.argocd_secret_manager_name}.${local.environment}"
 }
@@ -53,6 +58,10 @@ data "aws_secretsmanager_secret" "argocd" {
 data "aws_secretsmanager_secret_version" "admin_password_version" {
   secret_id = data.aws_secretsmanager_secret.argocd.id
 }
+
+################################################################################
+# EKS Cluster
+################################################################################
 #tfsec:ignore:aws-eks-enable-control-plane-logging
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -67,7 +76,7 @@ module "eks" {
 
   #we uses only 1 security group to allow connection with Fargate, MNG, and Karpenter nodes
   create_node_security_group = false
-  cluster_security_group_additional_rules = {   
+  cluster_security_group_additional_rules = {
     ingress_alb_security_group_id = {
       description              = "Ingress from environment ALB security group"
       protocol                 = "tcp"
@@ -77,7 +86,7 @@ module "eks" {
       source_security_group_id = data.aws_security_group.alb_sg[0].id
     }
   }
-  
+
   eks_managed_node_groups = {
     initial = {
       node_group_name = local.node_group_name
@@ -95,7 +104,8 @@ module "eks" {
     module.eks_blueprints_platform_teams.aws_auth_configmap_role,
     [for team in module.eks_blueprints_dev_teams : team.aws_auth_configmap_role],
     {
-      rolearn  = module.karpenter.role_arn
+      #rolearn  = module.karpenter.role_arn
+      rolearn  = module.eks_blueprints_addons.karpenter.node_iam_role_arn
       username = "system:node:{{EC2PrivateDNSName}}"
       groups = [
         "system:bootstrappers",
@@ -115,10 +125,10 @@ module "eks" {
   #   }
   #   kube-proxy = {
   #     most_recent = true
-  #   }  
+  #   }
   #   aws-ebs-csi-driver = {
   #     most_recent = true
-  #   }      
+  #   }
   #   vpc-cni = {
   #     # Specify the VPC CNI addon should be deployed before compute to ensure
   #     # the addon is configured before data plane compute resources are created
@@ -144,10 +154,13 @@ module "eks" {
 }
 
 data "aws_iam_role" "eks_admin_role_name" {
-  count     = local.eks_admin_role_name != "" ? 1 : 0
-  name = local.eks_admin_role_name
+  count = local.eks_admin_role_name != "" ? 1 : 0
+  name  = local.eks_admin_role_name
 }
 
+################################################################################
+# EKS Blueprints Teams
+################################################################################
 module "eks_blueprints_platform_teams" {
   source  = "aws-ia/eks-blueprints-teams/aws"
   version = "~> 0.2"
@@ -156,9 +169,9 @@ module "eks_blueprints_platform_teams" {
 
   # Enables elevated, admin privileges for this team
   enable_admin = true
- 
+
   # Define who can impersonate the team-platform Role
-  users             = [
+  users = [
     data.aws_caller_identity.current.arn,
     try(data.aws_iam_role.eks_admin_role_name[0].arn, data.aws_caller_identity.current.arn),
   ]
@@ -211,7 +224,7 @@ module "eks_blueprints_platform_teams" {
           }
         ]
       }
-      
+
     }
 
   }
@@ -318,53 +331,36 @@ module "gitops_bridge_metadata" {
   source = "../../../gitops-bridge/argocd/iac/terraform/modules/gitops-bridge-metadata"
 
   cluster_name = module.eks.cluster_name
-  metadata = merge(module.eks_blueprints_addons.gitops_metadata, {
-    metadata_argocd_password = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
-    metadata_seb_proute = "yes"
-  })
-  environment = local.environment
-  addons = local.addons
+  metadata     = local.addons_metadata
+  environment  = local.environment
+  addons       = local.addons
 }
 
 ################################################################################
 # GitOps Bridge: Bootstrap
 ################################################################################
-locals {
-  kubeconfig = "/tmp/${module.eks.cluster_name}"
-  argocd_bootstrap_control_plane = "https://raw.githubusercontent.com/allamand/gitops-bridge-argocd-control-plane-template/main/bootstrap/control-plane/exclude/bootstrap.yaml"
-  argocd_bootstrap_workloads = "https://raw.githubusercontent.com/allamand/gitops-bridge-argocd-control-plane-template/main/bootstrap/workloads/exclude/bootstrap.yaml"
-}
+
 module "gitops_bridge_bootstrap" {
   source = "../../../gitops-bridge/argocd/iac/terraform/modules/gitops-bridge-bootstrap"
 
-  options = {
-    argocd = {
-      cluster_name = module.eks.cluster_name
-      argocd_create_install = true
-      kubeconfig_command = <<-EOT
-      KUBECONFIG=${local.kubeconfig}
-      aws eks --region ${local.region} update-kubeconfig --name ${module.eks.cluster_name}
-      EOT
-      argocd_cluster = module.gitops_bridge_metadata.argocd
-      argocd_bootstrap_app_of_apps = <<-EOT
-      argocd app create --port-forward -f ${local.argocd_bootstrap_control_plane}
-      argocd app create --port-forward -f ${local.argocd_bootstrap_workloads}
-      EOT
-    }
-  }
+  argocd_cluster               = module.gitops_bridge_metadata.argocd
+  argocd_bootstrap_app_of_apps = local.argocd_bootstrap_app_of_apps
 }
 
+################################################################################
+# EKS Blueprints Addons
+################################################################################
 module "eks_blueprints_addons" {
-  source = "github.com/csantanapr/terraform-aws-eks-blueprints-addons?ref=gitops-bridge-v2"
+  #source = "github.com/csantanapr/terraform-aws-eks-blueprints-addons?ref=gitops-bridge-v2"
+  source = "aws-ia/eks-blueprints-addons/aws"
 
   cluster_name      = module.eks.cluster_name
   cluster_endpoint  = module.eks.cluster_endpoint
   cluster_version   = module.eks.cluster_version
   oidc_provider_arn = module.eks.oidc_provider_arn
-  vpc_id            = data.aws_vpc.vpc.id
 
   # Using GitOps Bridge
-  create_kubernetes_resources    = false
+  create_kubernetes_resources = false
 
   eks_addons = {
     aws-ebs-csi-driver = {
@@ -379,7 +375,7 @@ module "eks_blueprints_addons" {
       # See README for further details
       #service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
       before_compute = true
-      addon_version = "v1.12.2-eksbuild.1"
+      addon_version  = "v1.12.2-eksbuild.1"
       #most_recent    = true # To ensure access to the latest settings provided
       configuration_values = jsonencode({
         env = {
@@ -394,27 +390,27 @@ module "eks_blueprints_addons" {
     }
   }
 
-  #enable_aws_efs_csi_driver                    = true
-  #enable_aws_fsx_csi_driver                    = true
-  enable_aws_cloudwatch_metrics = true
-  #enable_aws_privateca_issuer                  = true
-  enable_cert_manager       = true
-  #enable_cluster_autoscaler = true
-  #enable_external_dns                          = true
+  # EKS Blueprints Addons
+  enable_cert_manager           = try(local.aws_addons.enable_cert_manager, false)
+  enable_aws_efs_csi_driver     = try(local.aws_addons.enable_aws_efs_csi_driver, false)
+  enable_aws_fsx_csi_driver     = try(local.aws_addons.enable_aws_fsx_csi_driver, false)
+  enable_aws_cloudwatch_metrics = try(local.aws_addons.enable_aws_cloudwatch_metrics, false)
+  enable_aws_privateca_issuer   = try(local.aws_addons.enable_aws_privateca_issuer, false)
+  enable_cluster_autoscaler     = try(local.aws_addons.enable_cluster_autoscaler, false)
+  enable_external_dns           = try(local.aws_addons.enable_external_dns, false)
   #external_dns_route53_zone_arns = ["arn:aws:route53:::hostedzone/Z123456789"]
-  #enable_external_secrets                      = true
-  enable_aws_load_balancer_controller = true
-  enable_aws_for_fluentbit            = true
-  #enable_fargate_fluentbit            = true
-  #enable_aws_node_termination_handler   = true
-  #aws_node_termination_handler_asg_arns = [for asg in module.eks.self_managed_node_groups : asg.autoscaling_group_arn]
-  enable_karpenter = true
-  #enable_velero = true
-  ## An S3 Bucket ARN is required. This can be declared with or without a Suffix.
+  enable_external_secrets               = try(local.aws_addons.enable_external_secrets, false)
+  enable_aws_load_balancer_controller   = try(local.aws_addons.enable_aws_load_balancer_controller, false)
+  enable_fargate_fluentbit              = try(local.aws_addons.enable_fargate_fluentbit, false)
+  enable_aws_for_fluentbit              = try(local.aws_addons.enable_aws_for_fluentbit, false)
+  enable_aws_node_termination_handler   = try(local.aws_addons.enable_aws_node_termination_handler, false)
+  aws_node_termination_handler_asg_arns = [for asg in module.eks.self_managed_node_groups : asg.autoscaling_group_arn]
+  enable_karpenter                      = try(local.aws_addons.enable_karpenter, false)
+  enable_velero                         = try(local.aws_addons.enable_velero, false)
   #velero = {
   #  s3_backup_location = "${module.velero_backup_s3_bucket.s3_bucket_arn}/backups"
   #}
-  #enable_aws_gateway_api_controller = true
+  enable_aws_gateway_api_controller = try(local.aws_addons.enable_aws_gateway_api_controller, false)
 
   tags = local.tags
 }
@@ -443,7 +439,7 @@ module "eks_blueprints_addons" {
 #         name  = "configs.secret.argocdServerAdminPassword"
 #         value = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
 #       }
-#     ]      
+#     ]
 #     set = [
 #       {
 #         name  = "server.service.type"
@@ -459,9 +455,9 @@ module "eks_blueprints_addons" {
 
 #   enable_amazon_eks_coredns = true
 #   enable_amazon_eks_kube_proxy = true
-#   enable_amazon_eks_vpc_cni = true      
+#   enable_amazon_eks_vpc_cni = true
 #   enable_amazon_eks_aws_ebs_csi_driver = true
-  
+
 #   #---------------------------------------------------------------
 #   # ADD-ONS - You can add additional addons here
 #   # https://aws-ia.github.io/terraform-aws-eks-blueprints/add-ons/
@@ -472,12 +468,12 @@ module "eks_blueprints_addons" {
 #   enable_aws_for_fluentbit             = true
 #   enable_metrics_server                = true
 #   enable_argo_rollouts                 = true # <-- Add this line
-#   enable_karpenter                     = true # <-- Add this line 
+#   enable_karpenter                     = true # <-- Add this line
 #   karpenter_node_iam_instance_profile        = module.karpenter.instance_profile_name
 #   karpenter_enable_spot_termination_handling = true
-  
+
 #   enable_kubecost                      = true
-#   enable_ingress_nginx                 = true    
+#   enable_ingress_nginx                 = true
 # }
 
 ################################################################################
@@ -485,27 +481,26 @@ module "eks_blueprints_addons" {
 ################################################################################
 
 # Creates Karpenter native node termination handler resources and IAM instance profile
-module "karpenter" {
-  source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 19.15.2"
+# module "karpenter" {
+#   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
+#   version = "~> 19.15.2"
 
-  cluster_name           = module.eks.cluster_name
-  irsa_oidc_provider_arn = module.eks.oidc_provider_arn
-  create_irsa            = false # IRSA will be created by the kubernetes-addons module
-  enable_spot_termination = true
-  queue_managed_sse_enabled = true
+#   cluster_name           = module.eks.cluster_name
+#   irsa_oidc_provider_arn = module.eks.oidc_provider_arn
+#   create_irsa            = false # IRSA will be created by the kubernetes-addons module
+#   enable_spot_termination = true
+#   queue_managed_sse_enabled = true
 
 
-  tags = local.tags
-}  
+#   tags = local.tags
+# }
 
 resource "aws_security_group_rule" "alb" {
-  security_group_id = module.eks.cluster_primary_security_group_id
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  description       = "Ingress from environment ALB security group"
+  security_group_id        = module.eks.cluster_primary_security_group_id
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  description              = "Ingress from environment ALB security group"
   source_security_group_id = data.aws_security_group.alb_sg[0].id
 }
-
