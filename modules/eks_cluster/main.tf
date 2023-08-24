@@ -366,7 +366,8 @@ module "eks_blueprints_addons" {
   }
 
   # EKS Blueprints Addons
-  enable_cert_manager           = try(local.aws_addons.enable_cert_manager, false)
+  enable_cert_manager = try(local.aws_addons.enable_cert_manager, false)
+  #enable_aws_ebs_csi_resources  = try(local.aws_addons.enable_aws_ebs_csi_resources, false)
   enable_aws_efs_csi_driver     = try(local.aws_addons.enable_aws_efs_csi_driver, false)
   enable_aws_fsx_csi_driver     = try(local.aws_addons.enable_aws_fsx_csi_driver, false)
   enable_aws_cloudwatch_metrics = try(local.aws_addons.enable_aws_cloudwatch_metrics, false)
@@ -386,6 +387,7 @@ module "eks_blueprints_addons" {
   #  s3_backup_location = "${module.velero_backup_s3_bucket.s3_bucket_arn}/backups"
   #}
   enable_aws_gateway_api_controller = try(local.aws_addons.enable_aws_gateway_api_controller, false)
+  #enable_aws_secrets_store_csi_driver_provider = try(local.enable_aws_secrets_store_csi_driver_provider, false)
 
   tags = local.tags
 }
@@ -420,6 +422,7 @@ resource "aws_security_group_rule" "alb" {
   description              = "Ingress from environment ALB security group"
   source_security_group_id = data.aws_security_group.alb_sg[0].id
 }
+#For health check
 resource "aws_security_group_rule" "alb_10254" {
   security_group_id        = module.eks.cluster_primary_security_group_id
   type                     = "ingress"

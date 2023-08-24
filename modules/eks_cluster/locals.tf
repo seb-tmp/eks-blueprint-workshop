@@ -34,9 +34,8 @@ locals {
   #---------------------------------------------------------------
 
   aws_addons = {
-    enable_cert_manager                  = true
-    enable_amazon_eks_aws_ebs_csi_driver = true
-    enable_aws_ebs_csi_resources         = true # generate gp2 and gp3 storage classes for ebs-csi
+    enable_cert_manager          = true
+    enable_aws_ebs_csi_resources = true # generate gp2 and gp3 storage classes for ebs-csi
     #enable_aws_efs_csi_driver                    = true
     #enable_aws_fsx_csi_driver                    = true
     enable_aws_cloudwatch_metrics = true
@@ -92,7 +91,7 @@ locals {
       gitops_bridge_repo_revision             = local.gitops_bridge_repo_revision
 
       target_group_arn = local.service == "blue" ? data.aws_lb_target_group.tg_blue.arn : data.aws_lb_target_group.tg_green.arn # <-- Add this line
-
+      #aws_security_group_ingress_nginx = aws_security_group.ingress_nginx.id
       # argocd_route53_weight = local.argocd_route53_weight
       # route53_weight = local.route53_weight
     }

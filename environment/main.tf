@@ -124,7 +124,7 @@ module "alb" {
       deregistration_delay = 10
       health_check = {
         path    = "/healthz"
-        port    = "80"
+        port    = "10254"
         matcher = "200-299"
       }
     },
@@ -136,7 +136,7 @@ module "alb" {
       deregistration_delay = 10
       health_check = {
         path    = "/healthz"
-        port    = "80"
+        port    = "10254"
         matcher = "200-299"
       }
     },
@@ -149,11 +149,11 @@ module "alb" {
         target_groups = [
           {
             target_group_index = 0
-            weight             = 50
+            weight             = 100
           },
           {
             target_group_index = 1
-            weight             = 50
+            weight             = 0
           }
         ]
         stickiness = {
