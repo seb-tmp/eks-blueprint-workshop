@@ -15,6 +15,9 @@ locals {
   workload_repo_revision     = var.workload_repo_revision
   workload_repo_secret       = var.workload_repo_secret
 
+  gitops_bridge_repo_url      = var.gitops_bridge_repo_url
+  gitops_bridge_repo_revision = var.gitops_bridge_repo_revision
+
   # Route 53 Ingress Weights
   # argocd_route53_weight      = var.argocd_route53_weight
   # route53_weight             = var.route53_weight
@@ -31,8 +34,9 @@ locals {
   #---------------------------------------------------------------
 
   aws_addons = {
-    enable_cert_manager          = true
-    enable_aws_ebs_csi_resources = true # generate gp2 and gp3 storage classes for ebs-csi
+    enable_cert_manager                  = true
+    enable_amazon_eks_aws_ebs_csi_driver = true
+    enable_aws_ebs_csi_resources         = true # generate gp2 and gp3 storage classes for ebs-csi
     #enable_aws_efs_csi_driver                    = true
     #enable_aws_fsx_csi_driver                    = true
     enable_aws_cloudwatch_metrics = true
@@ -84,6 +88,8 @@ locals {
       workload_repo_path                      = local.workload_repo_path
       workload_repo_url                       = local.workload_repo_url
       workload_repo_revision                  = local.workload_repo_revision
+      gitops_bridge_repo_url                  = local.gitops_bridge_repo_url
+      gitops_bridge_repo_revision             = local.gitops_bridge_repo_revision
 
       target_group_arn = local.service == "blue" ? data.aws_lb_target_group.tg_blue.arn : data.aws_lb_target_group.tg_green.arn # <-- Add this line
 
@@ -92,46 +98,13 @@ locals {
     }
   )
 
+  #---------------------------------------------------------------
+  # Manifests for bootstraping the cluster for addons & workloads
+  #---------------------------------------------------------------
   argocd_bootstrap_app_of_apps = {
     addons    = file("${path.module}/../../bootstrap/addons.yaml")
     workloads = file("${path.module}/../../bootstrap/workloads.yaml")
   }
-
-  #At this time (with new v5 addon repository), the Addons need to be managed by Terrform and not ArgoCD
-  # addons_application = {
-  #   path                = "chart"
-  #   repo_url            = local.addons_repo_url
-  #   add_on_application  = true
-  # }
-
-  #---------------------------------------------------------------
-  # ARGOCD WORKLOAD APPLICATION
-  #---------------------------------------------------------------
-
-  # workload_application = {
-  #   path                = local.workload_repo_path # <-- we could also to blue/green on the workload repo path like: envs/dev-blue / envs/dev-green
-  #   repo_url            = local.workload_repo_url
-  #   target_revision     = local.workload_repo_revision
-
-  #   add_on_application  = false
-
-  #   values = {
-  #     labels = {
-  #       env   = local.env
-  #     }
-  #     spec = {
-  #       source = {
-  #         repoURL        = local.workload_repo_url
-  #         targetRevision = local.workload_repo_revision
-  #       }
-  #       blueprint                = "terraform"
-  #       clusterName              = local.name
-  #       karpenterInstanceProfile = module.karpenter.instance_profile_name # Activate to enable Karpenter manifests (only when Karpenter add-on will be enabled in the Karpenter workshop)
-  #       env                      = local.env
-  #       target_group_arn         = local.service == "blue" ? data.aws_lb_target_group.tg_blue.arn : data.aws_lb_target_group.tg_green.arn # <-- Add this line
-  #     }
-  #   }
-  # }
 
   tags = {
     Blueprint  = local.name
@@ -140,7 +113,9 @@ locals {
 
 }
 
-
+################################################################################
+# Datas for External Load Balancer
+################################################################################
 data "aws_lb_target_group" "tg_blue" {
   name = "${local.environment}-tg-blue"
 }

@@ -9,8 +9,10 @@ spec:
     namespace: 'argocd'
   project: default
   source:
-    path: bootstrap/workloads
-    repoURL: https://github.com/allamand/gitops-bridge-argocd-control-plane-template
+    # path: bootstrap/workloads
+    # repoURL: https://github.com/allamand/gitops-bridge-argocd-control-plane-template
+    repoURL: git@github.com:seb-tmp/eks-blueprints-workloads
+    path: gitops-bridge-bootstrap
     directory:
       recurse: true
       exclude: exclude/*

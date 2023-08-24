@@ -15,6 +15,18 @@ variable "service_name" {
   default     = "blue"
 }
 
+variable "gitops_bridge_repo_url" {
+  type        = string
+  description = "Git repo URL for the ArgoCD workload deployment"
+  default     = "https://github.com/allamand/gitops-bridge-argocd-control-plane-template"
+}
+
+variable "gitops_bridge_repo_revision" {
+  type        = string
+  description = "Git repo revision in gitops_bridge_repo_url for the ArgoCD workload deployment"
+  default     = "HEAD"
+}
+
 variable "workload_repo_url" {
   type        = string
   description = "Git repo URL for the ArgoCD workload deployment"
@@ -37,12 +49,6 @@ variable "workload_repo_path" {
   type        = string
   description = "Git repo path in workload_repo_url for the ArgoCD workload deployment"
   default     = "envs/dev"
-}
-
-variable "addons_repo_url" {
-  type        = string
-  description = "Git repo URL for the ArgoCD addons deployment"
-  default     = "https://github.com/aws-samples/eks-blueprints-add-ons.git"
 }
 
 variable "cluster_version" {

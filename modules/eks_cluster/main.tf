@@ -119,32 +119,6 @@ module "eks" {
     }
   ])
 
-  # cluster_addons = {
-  #   coredns    = {
-  #     most_recent = true
-  #   }
-  #   kube-proxy = {
-  #     most_recent = true
-  #   }
-  #   aws-ebs-csi-driver = {
-  #     most_recent = true
-  #   }
-  #   vpc-cni = {
-  #     # Specify the VPC CNI addon should be deployed before compute to ensure
-  #     # the addon is configured before data plane compute resources are created
-  #     # See README for further details
-  #     before_compute = true
-  #     most_recent    = true # To ensure access to the latest settings provided
-  #     configuration_values = jsonencode({
-  #       env = {
-  #         # Reference docs https://docs.aws.amazon.com/eks/latest/userguide/cni-increase-ip-addresses.html
-  #         ENABLE_PREFIX_DELEGATION = "true"
-  #         WARM_PREFIX_TARGET       = "1"
-  #       }
-  #     })
-  #   }
-  # }
-
   tags = merge(local.tags, {
     # NOTE - if creating multiple security groups with this module, only tag the
     # security group that Karpenter should utilize with the following tag
@@ -364,7 +338,8 @@ module "eks_blueprints_addons" {
 
   eks_addons = {
     aws-ebs-csi-driver = {
-      most_recent = true
+      most_recent              = true
+      service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
     }
     coredns = {
       most_recent = true
@@ -415,91 +390,41 @@ module "eks_blueprints_addons" {
   tags = local.tags
 }
 
-# module "kubernetes_addons" {
-#   #source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=v4.32.0/modules/kubernetes-addons"
-#   source = "github.com/aws-ia/terraform-aws-eks-blueprints?ref=blueprints-workshops/modules/kubernetes-addons"
+module "ebs_csi_driver_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.20"
 
-#   eks_cluster_id     = module.eks.cluster_name
+  role_name_prefix = "${module.eks.cluster_name}-ebs-csi-"
 
-#   #---------------------------------------------------------------
-#   # ARGO CD ADD-ON
-#   #---------------------------------------------------------------
+  attach_ebs_csi_policy = true
 
-#   enable_argocd         = true
-#   argocd_manage_add_ons = true # Indicates that ArgoCD is responsible for managing/deploying Add-ons.
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
 
-#   argocd_applications = {
-#     addons    = local.addons_application
-#     workloads = local.workload_application #We comment it for now
-#   }
-
-#   argocd_helm_config = {
-#     set_sensitive = [
-#       {
-#         name  = "configs.secret.argocdServerAdminPassword"
-#         value = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
-#       }
-#     ]
-#     set = [
-#       {
-#         name  = "server.service.type"
-#         value = "LoadBalancer"
-#       }
-#     ]
-#   }
-
-#   #---------------------------------------------------------------
-#   # EKS Managed AddOns
-#   # https://aws-ia.github.io/terraform-aws-eks-blueprints/add-ons/
-#   #---------------------------------------------------------------
-
-#   enable_amazon_eks_coredns = true
-#   enable_amazon_eks_kube_proxy = true
-#   enable_amazon_eks_vpc_cni = true
-#   enable_amazon_eks_aws_ebs_csi_driver = true
-
-#   #---------------------------------------------------------------
-#   # ADD-ONS - You can add additional addons here
-#   # https://aws-ia.github.io/terraform-aws-eks-blueprints/add-ons/
-#   #---------------------------------------------------------------
-
-
-#   enable_aws_load_balancer_controller  = true
-#   enable_aws_for_fluentbit             = true
-#   enable_metrics_server                = true
-#   enable_argo_rollouts                 = true # <-- Add this line
-#   enable_karpenter                     = true # <-- Add this line
-#   karpenter_node_iam_instance_profile        = module.karpenter.instance_profile_name
-#   karpenter_enable_spot_termination_handling = true
-
-#   enable_kubecost                      = true
-#   enable_ingress_nginx                 = true
-# }
+  tags = local.tags
+}
 
 ################################################################################
-# Karpenter
+# Security group from external load Balancer defined in environment
 ################################################################################
-
-# Creates Karpenter native node termination handler resources and IAM instance profile
-# module "karpenter" {
-#   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-#   version = "~> 19.15.2"
-
-#   cluster_name           = module.eks.cluster_name
-#   irsa_oidc_provider_arn = module.eks.oidc_provider_arn
-#   create_irsa            = false # IRSA will be created by the kubernetes-addons module
-#   enable_spot_termination = true
-#   queue_managed_sse_enabled = true
-
-
-#   tags = local.tags
-# }
-
 resource "aws_security_group_rule" "alb" {
   security_group_id        = module.eks.cluster_primary_security_group_id
   type                     = "ingress"
   from_port                = 80
   to_port                  = 80
+  protocol                 = "tcp"
+  description              = "Ingress from environment ALB security group"
+  source_security_group_id = data.aws_security_group.alb_sg[0].id
+}
+resource "aws_security_group_rule" "alb_10254" {
+  security_group_id        = module.eks.cluster_primary_security_group_id
+  type                     = "ingress"
+  from_port                = 10254
+  to_port                  = 10254
   protocol                 = "tcp"
   description              = "Ingress from environment ALB security group"
   source_security_group_id = data.aws_security_group.alb_sg[0].id

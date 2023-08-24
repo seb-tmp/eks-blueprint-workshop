@@ -39,10 +39,6 @@ provider "kubectl" {
   }
 }
 
-# data "aws_eks_cluster_auth" "this" {
-#   name = module.eks_cluster.eks_cluster_id
-# }
-
 module "eks_cluster" {
   source = "../modules/eks_cluster"
 
@@ -54,8 +50,6 @@ module "eks_cluster" {
   eks_admin_role_name = var.eks_admin_role_name
 
   argocd_secret_manager_name_suffix = var.argocd_secret_manager_name_suffix
-
-  addons_repo_url = var.addons_repo_url
 
   workload_repo_url      = var.workload_repo_url
   workload_repo_revision = var.workload_repo_revision

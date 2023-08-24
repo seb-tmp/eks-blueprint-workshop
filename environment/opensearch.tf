@@ -62,11 +62,3 @@ resource "aws_elasticsearch_domain" "es" {
     Domain = local.name
   }
 }
-output "elk_endpoint" {
-  description = "Endpoint of the elasticsearch domain"
-  value       = aws_elasticsearch_domain.es.endpoint
-}
-output "elk_kibana_endpoint" {
-  description = "Endpoint of the elasticsearch Kibana endpoint"
-  value       = aws_elasticsearch_domain.es.kibana_endpoint
-}

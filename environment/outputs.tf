@@ -23,3 +23,12 @@ output "target_group_arns" {
   description = "ARNs of the target groups. Useful for passing to your Auto Scaling group."
   value       = module.alb.target_group_arns
 }
+
+output "elk_endpoint" {
+  description = "Endpoint of the elasticsearch domain"
+  value       = aws_elasticsearch_domain.es.endpoint
+}
+output "elk_kibana_endpoint" {
+  description = "Endpoint of the elasticsearch Kibana endpoint"
+  value       = aws_elasticsearch_domain.es.kibana_endpoint
+}

@@ -46,12 +46,6 @@ variable "workload_repo_path" {
   default     = "envs/dev"
 }
 
-variable "addons_repo_url" {
-  type        = string
-  description = "Git repo URL for the ArgoCD addons deployment"
-  default     = "https://github.com/aws-samples/eks-blueprints-add-ons.git"
-}
-
 # variable "argocd_route53_weight" {
 #   description = "The Route53 weighted records weight for argocd application"
 #   type        = string
