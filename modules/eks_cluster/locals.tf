@@ -10,10 +10,12 @@ locals {
   cluster_version            = var.cluster_version
   argocd_secret_manager_name = var.argocd_secret_manager_name_suffix
   eks_admin_role_name        = var.eks_admin_role_name
-  workload_repo_path         = var.workload_repo_path
-  workload_repo_url          = var.workload_repo_url
-  workload_repo_revision     = var.workload_repo_revision
-  workload_repo_secret       = var.workload_repo_secret
+
+  addons_repo_url        = var.addons_repo_url
+  workload_repo_path     = var.workload_repo_path
+  workload_repo_url      = var.workload_repo_url
+  workload_repo_revision = var.workload_repo_revision
+  workload_repo_secret   = var.workload_repo_secret
 
   gitops_bridge_repo_url      = var.gitops_bridge_repo_url
   gitops_bridge_repo_revision = var.gitops_bridge_repo_revision
@@ -100,16 +102,37 @@ locals {
   #---------------------------------------------------------------
   # Manifests for bootstraping the cluster for addons & workloads
   #---------------------------------------------------------------
+  # argocd_bootstrap_app_of_apps = {
+  #   addons    = file("${path.module}/../../bootstrap/addons.yaml")
+  #   workloads = file("${path.module}/../../bootstrap/workloads.yaml")
+  # }
   argocd_bootstrap_app_of_apps = {
-    addons    = file("${path.module}/../../bootstrap/addons.yaml")
-    workloads = file("${path.module}/../../bootstrap/workloads.yaml")
+    addons    = data.template_file.addons_template.rendered
+    workloads = data.template_file.workloads_template.rendered
   }
+
 
   tags = {
     Blueprint  = local.name
     GithubRepo = "github.com/aws-ia/terraform-aws-eks-blueprints"
   }
 
+}
+
+data "template_file" "addons_template" {
+  template = file("${path.module}/../../bootstrap/addons.yaml.template")
+
+  vars = {
+    repo_url = local.addons_repo_url
+  }
+}
+
+data "template_file" "workloads_template" {
+  template = file("${path.module}/../../bootstrap/workloads.yaml.template")
+
+  vars = {
+    repo_url = local.workload_repo_url
+  }
 }
 
 ################################################################################

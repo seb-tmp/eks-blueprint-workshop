@@ -350,8 +350,8 @@ module "eks_blueprints_addons" {
       # See README for further details
       #service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
       before_compute = true
-      addon_version  = "v1.12.2-eksbuild.1"
-      #most_recent    = true # To ensure access to the latest settings provided
+      #addon_version  = "v1.12.2-eksbuild.1"
+      most_recent = true # To ensure access to the latest settings provided
       configuration_values = jsonencode({
         env = {
           # Reference docs https://docs.aws.amazon.com/eks/latest/userguide/cni-increase-ip-addresses.html

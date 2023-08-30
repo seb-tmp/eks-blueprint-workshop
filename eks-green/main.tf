@@ -51,6 +51,7 @@ module "eks_cluster" {
 
   argocd_secret_manager_name_suffix = var.argocd_secret_manager_name_suffix
 
+  addons_repo_url        = var.addons_repo_url
   workload_repo_url      = var.workload_repo_url
   workload_repo_revision = var.workload_repo_revision
   workload_repo_path     = var.workload_repo_path

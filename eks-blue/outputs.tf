@@ -23,3 +23,8 @@ output "gitops_metadata" {
   value       = module.eks_cluster.gitops_metadata
   sensitive   = true
 }
+
+output "debug" {
+  description = "debug output"
+  value       = module.eks_cluster.debug
+}

@@ -27,6 +27,12 @@ variable "gitops_bridge_repo_revision" {
   default     = "HEAD"
 }
 
+variable "addons_repo_url" {
+  type        = string
+  description = "Git repo URL for the ArgoCD addons deployment"
+  default     = "https://github.com/gitops-bridge-dev/gitops-bridge-argocd-control-plane-template"
+}
+
 variable "workload_repo_url" {
   type        = string
   description = "Git repo URL for the ArgoCD workload deployment"

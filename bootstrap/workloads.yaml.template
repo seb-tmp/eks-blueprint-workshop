@@ -9,7 +9,7 @@ spec:
     namespace: 'argocd'
   project: default
   source:
-    repoURL: git@github.com:seb-tmp/eks-blueprints-workloads
+    repoURL: ${repo_url}
     path: gitops-bridge-bootstrap
     directory:
       recurse: true
