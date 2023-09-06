@@ -122,16 +122,18 @@ locals {
   #---------------------------------------------------------------
 
   argocd_bootstrap_app_of_apps = {
-    addons = templatefile("${path.module}/../../bootstrap/addons.yaml.template", {
-      repoURL        = local.gitops_addons_url
-      path           = local.gitops_addons_path
-      targetRevision = local.gitops_addons_revision
-    })
-    workloads = templatefile("${path.module}/../../bootstrap/workloads.yaml.template", {
-      repoURL        = local.gitops_workloads_url
-      path           = local.gitops_workloads_path
-      targetRevision = local.gitops_workloads_revision
-    })
+    addons    = file("${path.module}/../../bootstrap/addons.yaml")
+    workloads = file("${path.module}/../../bootstrap/workloads.yaml")
+    # addons = templatefile("${path.module}/../../bootstrap/addons.yaml.template", {
+    #   repoURL        = local.gitops_addons_url
+    #   path           = local.gitops_addons_path
+    #   targetRevision = local.gitops_addons_revision
+    # })
+    # workloads = templatefile("${path.module}/../../bootstrap/workloads.yaml.template", {
+    #   repoURL        = local.gitops_workloads_url
+    #   path           = local.gitops_workloads_path
+    #   targetRevision = local.gitops_workloads_revision
+    # })
   }
 
 
