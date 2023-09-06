@@ -9,8 +9,9 @@ spec:
     namespace: 'argocd'
   project: default
   source:
-    repoURL: ${repo_url}
-    path: gitops-bridge-bootstrap
+    repoURL: ${repoURL}
+    path: gitops-bridge-bootstrap # uses this for initial bootstrap
+    targetRevision: ${targetRevision}
     directory:
       recurse: true
       exclude: exclude/*

@@ -7,23 +7,28 @@ locals {
   name = "${local.environment}-${local.service}"
 
   # Mapping
-  cluster_version            = var.cluster_version
-  argocd_secret_manager_name = var.argocd_secret_manager_name_suffix
-  eks_admin_role_name        = var.eks_admin_role_name
+  #hosted_zone_name                            = var.hosted_zone_name
+  ingress_type                                = var.ingress_type
+  aws_secret_manager_git_private_ssh_key_name = var.aws_secret_manager_git_private_ssh_key_name
+  cluster_version                             = var.cluster_version
+  argocd_secret_manager_name                  = var.argocd_secret_manager_name_suffix
+  eks_admin_role_name                         = var.eks_admin_role_name
 
-  addons_repo_url        = var.addons_repo_url
-  workload_repo_path     = var.workload_repo_path
-  workload_repo_url      = var.workload_repo_url
-  workload_repo_revision = var.workload_repo_revision
-  workload_repo_secret   = var.workload_repo_secret
+  gitops_workloads_url      = "${var.gitops_workloads_org}/${var.gitops_workloads_repo}"
+  gitops_workloads_path     = var.gitops_workloads_path
+  gitops_workloads_revision = var.gitops_workloads_revision
 
-  gitops_bridge_repo_url      = var.gitops_bridge_repo_url
-  gitops_bridge_repo_revision = var.gitops_bridge_repo_revision
+  gitops_addons_url      = "${var.gitops_addons_org}/${var.gitops_addons_repo}"
+  gitops_addons_basepath = var.gitops_addons_basepath
+  gitops_addons_path     = var.gitops_addons_path
+  gitops_addons_revision = var.gitops_addons_revision
 
   # Route 53 Ingress Weights
   # argocd_route53_weight      = var.argocd_route53_weight
   # route53_weight             = var.route53_weight
   # ecsfrontend_route53_weight = var.ecsfrontend_route53_weight
+
+  #eks_cluster_domain = "${local.environment}.${local.hosted_zone_name}" # for external-dns
 
   tag_val_vpc            = local.environment
   tag_val_public_subnet  = "${local.environment}-public-"
@@ -78,37 +83,55 @@ locals {
   addons_metadata = merge(
     module.eks_blueprints_addons.gitops_metadata, # eks blueprints addons automatically expose metadatas
     {
-      aws_cluster_name                        = module.eks.cluster_name
-      aws_region                              = local.region
-      aws_account_id                          = data.aws_caller_identity.current.account_id
-      aws_vpc_id                              = data.aws_vpc.vpc.id
-      cluster_endpoint                        = module.eks.cluster_endpoint
-      env                                     = local.env
-      argocd_password                         = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
-      aws_secret_manager_workload_secret_name = local.workload_repo_secret
-      workload_repo_path                      = local.workload_repo_path
-      workload_repo_url                       = local.workload_repo_url
-      workload_repo_revision                  = local.workload_repo_revision
-      gitops_bridge_repo_url                  = local.gitops_bridge_repo_url
-      gitops_bridge_repo_revision             = local.gitops_bridge_repo_revision
+      aws_cluster_name = module.eks.cluster_name
+      aws_region       = local.region
+      aws_account_id   = data.aws_caller_identity.current.account_id
+      aws_vpc_id       = data.aws_vpc.vpc.id
+      cluster_endpoint = module.eks.cluster_endpoint
+      env              = local.env
+    },
+    {
+      argocd_password                             = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
+      aws_secret_manager_git_private_ssh_key_name = local.aws_secret_manager_git_private_ssh_key_name
 
-      target_group_arn = local.service == "blue" ? data.aws_lb_target_group.tg_blue.arn : data.aws_lb_target_group.tg_green.arn # <-- Add this line
+      gitops_workloads_url      = local.gitops_workloads_url
+      gitops_workloads_path     = local.gitops_workloads_path
+      gitops_workloads_revision = local.gitops_workloads_revision
+
+      addons_repo_url      = local.gitops_addons_url
+      addons_repo_basepath = local.gitops_addons_basepath
+      addons_repo_path     = local.gitops_addons_path
+      addons_repo_revision = local.gitops_addons_revision
+    },
+    {
+      #eks_cluster_domain = local.eks_cluster_domain
+      #external_dns_policy = "sync"
+      ingress_type = local.ingress_type
+      #argocd_route53_weight      = local.argocd_route53_weight
+      #route53_weight             = local.route53_weight
+      #ecsfrontend_route53_weight = local.ecsfrontend_route53_weight
       #aws_security_group_ingress_nginx = aws_security_group.ingress_nginx.id
-      # argocd_route53_weight = local.argocd_route53_weight
-      # route53_weight = local.route53_weight
+      ingress_nginx_service_type = "ClusterIP"
+      target_group_arn           = local.service == "blue" ? data.aws_lb_target_group.tg_blue.arn : data.aws_lb_target_group.tg_green.arn # <-- Add this line
+      external_lb_dns            = data.aws_lb.alb.dns_name
     }
   )
 
   #---------------------------------------------------------------
   # Manifests for bootstraping the cluster for addons & workloads
   #---------------------------------------------------------------
-  # argocd_bootstrap_app_of_apps = {
-  #   addons    = file("${path.module}/../../bootstrap/addons.yaml")
-  #   workloads = file("${path.module}/../../bootstrap/workloads.yaml")
-  # }
+
   argocd_bootstrap_app_of_apps = {
-    addons    = data.template_file.addons_template.rendered
-    workloads = data.template_file.workloads_template.rendered
+    addons = templatefile("${path.module}/../../bootstrap/addons.yaml.template", {
+      repoURL        = local.gitops_addons_url
+      path           = local.gitops_addons_path
+      targetRevision = local.gitops_addons_revision
+    })
+    workloads = templatefile("${path.module}/../../bootstrap/workloads.yaml.template", {
+      repoURL        = local.gitops_workloads_url
+      path           = local.gitops_workloads_path
+      targetRevision = local.gitops_workloads_revision
+    })
   }
 
 
@@ -117,22 +140,6 @@ locals {
     GithubRepo = "github.com/aws-ia/terraform-aws-eks-blueprints"
   }
 
-}
-
-data "template_file" "addons_template" {
-  template = file("${path.module}/../../bootstrap/addons.yaml.template")
-
-  vars = {
-    repo_url = local.addons_repo_url
-  }
-}
-
-data "template_file" "workloads_template" {
-  template = file("${path.module}/../../bootstrap/workloads.yaml.template")
-
-  vars = {
-    repo_url = local.workload_repo_url
-  }
 }
 
 ################################################################################
@@ -154,3 +161,5 @@ data "aws_security_group" "alb_sg" {
   count = 1
   id    = tolist(data.aws_lb.alb.security_groups)[count.index]
 }
+
+#END Local

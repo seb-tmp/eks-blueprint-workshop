@@ -15,6 +15,9 @@ locals {
 
   argocd_secret_manager_name = var.argocd_secret_manager_name_suffix
 
+  weight_target_group_blue  = "0"
+  weight_target_group_green = "100"
+
   tags = {
     Blueprint  = local.name
     GithubRepo = "github.com/aws-ia/terraform-aws-eks-blueprints"
@@ -149,11 +152,11 @@ module "alb" {
         target_groups = [
           {
             target_group_index = 0
-            weight             = 100
+            weight             = local.weight_target_group_blue
           },
           {
             target_group_index = 1
-            weight             = 0
+            weight             = local.weight_target_group_green
           }
         ]
         stickiness = {

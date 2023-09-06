@@ -48,12 +48,20 @@ module "eks_cluster" {
 
   environment_name    = var.environment_name
   eks_admin_role_name = var.eks_admin_role_name
+  ingress_type        = var.ingress_type
 
-  argocd_secret_manager_name_suffix = var.argocd_secret_manager_name_suffix
+  aws_secret_manager_git_private_ssh_key_name = var.aws_secret_manager_git_private_ssh_key_name
+  argocd_secret_manager_name_suffix           = var.argocd_secret_manager_name_suffix
 
-  addons_repo_url        = var.addons_repo_url
-  workload_repo_url      = var.workload_repo_url
-  workload_repo_revision = var.workload_repo_revision
-  workload_repo_path     = var.workload_repo_path
-  workload_repo_secret   = var.workload_repo_secret
+  gitops_addons_org      = var.gitops_addons_org
+  gitops_addons_repo     = var.gitops_addons_repo
+  gitops_addons_basepath = var.gitops_addons_basepath
+  gitops_addons_path     = var.gitops_addons_path
+  gitops_addons_revision = var.gitops_addons_revision
+
+  gitops_workloads_org      = var.gitops_workloads_org
+  gitops_workloads_repo     = var.gitops_workloads_repo
+  gitops_workloads_revision = var.gitops_workloads_revision
+  gitops_workloads_path     = var.gitops_workloads_path
+
 }

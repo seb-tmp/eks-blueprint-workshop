@@ -10,10 +10,22 @@ variable "environment_name" {
   default     = "eks-blueprint"
 }
 
+variable "ingress_type" {
+  type        = string
+  description = "Type of ingress to uses (alb | nginx | ...). this parameter will be sent to arocd via gitops bridge"
+  default     = "alb"
+}
+
 variable "eks_admin_role_name" {
   type        = string
   description = "Additional IAM role to be admin in the cluster"
   default     = ""
+}
+
+variable "aws_secret_manager_git_private_ssh_key_name" {
+  type        = string
+  description = "Secret Manager secret name for hosting Github SSH-Key to Access private repository"
+  default     = "github-blueprint-ssh-key"
 }
 
 variable "argocd_secret_manager_name_suffix" {
@@ -22,50 +34,51 @@ variable "argocd_secret_manager_name_suffix" {
   default     = "argocd-admin-secret"
 }
 
-variable "addons_repo_url" {
+variable "gitops_workloads_org" {
   type        = string
-  description = "Git repo URL for the ArgoCD addons deployment"
-  default     = "https://github.com/gitops-bridge-dev/gitops-bridge-argocd-control-plane-template"
+  description = "Git repository org/user contains for workloads"
+  default     = "https://github.com/aws-samples"
 }
 
-variable "workload_repo_url" {
+variable "gitops_workloads_repo" {
   type        = string
-  description = "Git repo URL for the ArgoCD workload deployment"
-  default     = "https://github.com/aws-samples/eks-blueprints-workloads.git"
+  description = "Git repository contains for workloads"
+  default     = "eks-blueprints-workloads"
 }
 
-variable "workload_repo_secret" {
-  type        = string
-  description = "Secret Manager secret name for hosting Github SSH-Key to Access private repository"
-  default     = "github-blueprint-ssh-key"
-}
-
-variable "workload_repo_revision" {
+variable "gitops_workloads_revision" {
   type        = string
   description = "Git repo revision in workload_repo_url for the ArgoCD workload deployment"
   default     = "main"
 }
 
-variable "workload_repo_path" {
+variable "gitops_workloads_path" {
   type        = string
   description = "Git repo path in workload_repo_url for the ArgoCD workload deployment"
   default     = "envs/dev"
 }
-
-# variable "argocd_route53_weight" {
-#   description = "The Route53 weighted records weight for argocd application"
-#   type        = string
-#   default     = "0"
-# }
-
-# variable "ecsfrontend_route53_weight" {
-#   description = "The Route53 weighted records weight for ecsdeo-frontend application"
-#   type        = string
-#   default     = "0"
-# }
-
-# variable "route53_weight" {
-#   description = "The Route53 weighted records weight for others application"
-#   type        = string
-#   default     = "0"
-# }
+variable "gitops_addons_org" {
+  type        = string
+  description = "Git repository org/user contains for addons"
+  default     = "https://github.com/gitops-bridge-dev"
+}
+variable "gitops_addons_repo" {
+  type        = string
+  description = "Git repository contains for addons"
+  default     = "gitops-bridge-argocd-control-plane-template"
+}
+variable "gitops_addons_basepath" {
+  type        = string
+  description = "Git repository base path for addons"
+  default     = ""
+}
+variable "gitops_addons_path" {
+  type        = string
+  description = "Git repository path for addons"
+  default     = "bootstrap/control-plane/addons"
+}
+variable "gitops_addons_revision" {
+  type        = string
+  description = "Git repository revision/branch/ref for addons"
+  default     = "HEAD"
+}

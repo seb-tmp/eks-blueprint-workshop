@@ -18,8 +18,18 @@ output "eks_blueprints_dev_teams_configure_kubectl" {
   value       = module.eks_cluster.eks_blueprints_dev_teams_configure_kubectl
 }
 
+output "access_argocd" {
+  description = "ArgoCD Access"
+  value       = module.eks_cluster.access_argocd
+}
+
 output "gitops_metadata" {
   description = "export gitops_metadata"
   value       = module.eks_cluster.gitops_metadata
   sensitive   = true
 }
+
+# output "debug" {
+#   description = "debug output"
+#   value       = module.eks_cluster.debug
+# }

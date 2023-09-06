@@ -2,7 +2,7 @@ aws_region          = "$AWS_REGION"
 environment_name     = "eks-blueprint"
 eks_admin_role_name = "WSParticipantRole"
 
-addons_repo_url = "https://github.com/aws-samples/eks-blueprints-add-ons.git"
+addons_repo_url = "https://github.com/gitops-bridge-dev/gitops-bridge-argocd-control-plane-template"
 
 workload_repo_url = "https://github.com/${GITHUB_USER}/eks-blueprints-workloads.git"
 workload_repo_revision = "main"

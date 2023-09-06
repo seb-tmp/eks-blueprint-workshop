@@ -4,7 +4,7 @@ provider "aws" {
   alias  = "virginia"
 }
 
-#data "aws_partition" "current" {}
+
 
 # Find the user currently in use by AWS
 data "aws_caller_identity" "current" {}
@@ -22,7 +22,6 @@ data "aws_subnets" "private" {
     values = ["${local.tag_val_private_subnet}*"]
   }
 }
-
 
 #Add Tags for the new cluster in the VPC Subnets
 resource "aws_ec2_tag" "private_subnets" {
@@ -100,24 +99,25 @@ module "eks" {
   }
 
   manage_aws_auth_configmap = true
-  aws_auth_roles = flatten([
-    module.eks_blueprints_platform_teams.aws_auth_configmap_role,
+  aws_auth_roles = concat(
     [for team in module.eks_blueprints_dev_teams : team.aws_auth_configmap_role],
-    {
-      #rolearn  = module.karpenter.role_arn
-      rolearn  = module.eks_blueprints_addons.karpenter.node_iam_role_arn
-      username = "system:node:{{EC2PrivateDNSName}}"
-      groups = [
-        "system:bootstrappers",
-        "system:nodes",
-      ]
-    },
-    {
-      rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.eks_admin_role_name}" # The ARN of the IAM role
-      username = "ops-role"                                                                                      # The user name within Kubernetes to map to the IAM role
-      groups   = ["system:masters"]                                                                              # A list of groups within Kubernetes to which the role is mapped; Checkout K8s Role and Rolebindings
-    }
-  ])
+    [
+      module.eks_blueprints_platform_teams.aws_auth_configmap_role,
+      {
+        rolearn  = module.eks_blueprints_addons.karpenter.node_iam_role_arn
+        username = "system:node:{{EC2PrivateDNSName}}"
+        groups = [
+          "system:bootstrappers",
+          "system:nodes",
+        ]
+      },
+      {
+        rolearn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.eks_admin_role_name}" # The ARN of the IAM role
+        username = "ops-role"                                                                                      # The user name within Kubernetes to map to the IAM role
+        groups   = ["system:masters"]                                                                              # A list of groups within Kubernetes to which the role is mapped; Checkout K8s Role and Rolebindings
+      }
+    ]
+  )
 
   tags = merge(local.tags, {
     # NOTE - if creating multiple security groups with this module, only tag the
@@ -137,7 +137,7 @@ data "aws_iam_role" "eks_admin_role_name" {
 ################################################################################
 module "eks_blueprints_platform_teams" {
   source  = "aws-ia/eks-blueprints-teams/aws"
-  version = "~> 0.2"
+  version = "~> 1.0"
 
   name = "team-platform"
 
@@ -205,9 +205,10 @@ module "eks_blueprints_platform_teams" {
 
   tags = local.tags
 }
+
 module "eks_blueprints_dev_teams" {
   source  = "aws-ia/eks-blueprints-teams/aws"
-  version = "~> 0.2"
+  version = "~> 1.0"
 
   for_each = {
     burnham = {
@@ -299,10 +300,55 @@ module "eks_blueprints_dev_teams" {
 }
 
 ################################################################################
+# GitOps Bridge: Private ssh keys for git
+################################################################################
+# Uncomment to uses git secret
+# data "aws_secretsmanager_secret" "workload_repo_secret" {
+#   name = local.aws_secret_manager_git_private_ssh_key_name
+# }
+
+# data "aws_secretsmanager_secret_version" "workload_repo_secret" {
+#   secret_id = data.aws_secretsmanager_secret.workload_repo_secret.id
+# }
+
+resource "kubernetes_namespace" "argocd" {
+  depends_on = [module.eks_blueprints_addons]
+  metadata {
+    name = "argocd"
+  }
+}
+
+resource "kubernetes_secret" "git_secrets" {
+
+  for_each = {
+    git-addons = {
+      type = "git"
+      url  = local.gitops_addons_url
+      # uncomment if you want to uses private repo wigh "git@github.com:xxx" syntax
+      #sshPrivateKey = data.aws_secretsmanager_secret_version.workload_repo_secret.secret_string
+    }
+    git-workloads = {
+      type = "git"
+      url  = local.gitops_workloads_url
+      # uncomment if you want to uses private repo wigh "git@github.com:xxx" syntax
+      #sshPrivateKey = data.aws_secretsmanager_secret_version.workload_repo_secret.secret_string
+    }
+  }
+  metadata {
+    name      = each.key
+    namespace = kubernetes_namespace.argocd.metadata[0].name
+    labels = {
+      "argocd.argoproj.io/secret-type" = "repo-creds"
+    }
+  }
+  data = each.value
+}
+
+################################################################################
 # GitOps Bridge: Metadata
 ################################################################################
 module "gitops_bridge_metadata" {
-  source = "../../../gitops-bridge/argocd/iac/terraform/modules/gitops-bridge-metadata"
+  source = "github.com/gitops-bridge-dev/gitops-bridge-argocd-metadata-terraform?ref=v1.0.0"
 
   cluster_name = module.eks.cluster_name
   metadata     = local.addons_metadata
@@ -315,17 +361,33 @@ module "gitops_bridge_metadata" {
 ################################################################################
 
 module "gitops_bridge_bootstrap" {
-  source = "../../../gitops-bridge/argocd/iac/terraform/modules/gitops-bridge-bootstrap"
+  source = "github.com/gitops-bridge-dev/gitops-bridge-argocd-bootstrap-terraform?ref=v1.0.0"
 
   argocd_cluster               = module.gitops_bridge_metadata.argocd
   argocd_bootstrap_app_of_apps = local.argocd_bootstrap_app_of_apps
+  #argocd                       = { create_namespace = false }
+  argocd = {
+    create_namespace = false
+    set = [
+      {
+        name  = "server.service.type"
+        value = "LoadBalancer"
+      }
+    ]
+    set_sensitive = [
+      {
+        name  = "configs.secret.argocdServerAdminPassword"
+        value = bcrypt(data.aws_secretsmanager_secret_version.admin_password_version.secret_string)
+      }
+    ]
+  }
+  depends_on = [kubernetes_secret.git_secrets]
 }
 
 ################################################################################
 # EKS Blueprints Addons
 ################################################################################
 module "eks_blueprints_addons" {
-  #source = "github.com/csantanapr/terraform-aws-eks-blueprints-addons?ref=gitops-bridge-v2"
   source = "aws-ia/eks-blueprints-addons/aws"
 
   cluster_name      = module.eks.cluster_name
@@ -337,10 +399,12 @@ module "eks_blueprints_addons" {
   create_kubernetes_resources = false
 
   eks_addons = {
-    aws-ebs-csi-driver = {
-      most_recent              = true
-      service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
-    }
+
+    # Remove for workshop as ebs-csi is long to provision (15mn)
+    # aws-ebs-csi-driver = {
+    #   most_recent              = true
+    #   service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+    # }
     coredns = {
       most_recent = true
     }
@@ -348,8 +412,8 @@ module "eks_blueprints_addons" {
       # Specify the VPC CNI addon should be deployed before compute to ensure
       # the addon is configured before data plane compute resources are created
       # See README for further details
-      #service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
-      before_compute = true
+      service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
+      before_compute           = true
       #addon_version  = "v1.12.2-eksbuild.1"
       most_recent = true # To ensure access to the latest settings provided
       configuration_values = jsonencode({
@@ -374,7 +438,7 @@ module "eks_blueprints_addons" {
   enable_aws_privateca_issuer   = try(local.aws_addons.enable_aws_privateca_issuer, false)
   enable_cluster_autoscaler     = try(local.aws_addons.enable_cluster_autoscaler, false)
   enable_external_dns           = try(local.aws_addons.enable_external_dns, false)
-  #external_dns_route53_zone_arns = ["arn:aws:route53:::hostedzone/Z123456789"]
+  #external_dns_route53_zone_arns = [data.aws_route53_zone.sub.arn]
   enable_external_secrets               = try(local.aws_addons.enable_external_secrets, false)
   enable_aws_load_balancer_controller   = try(local.aws_addons.enable_aws_load_balancer_controller, false)
   enable_fargate_fluentbit              = try(local.aws_addons.enable_fargate_fluentbit, false)
@@ -404,6 +468,25 @@ module "ebs_csi_driver_irsa" {
     main = {
       provider_arn               = module.eks.oidc_provider_arn
       namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
+
+  tags = local.tags
+}
+
+module "vpc_cni_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.20"
+
+  role_name_prefix = "${module.eks.cluster_name}-vpc-cni-"
+
+  attach_vpc_cni_policy = true
+  vpc_cni_enable_ipv4   = true
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-node"]
     }
   }
 
