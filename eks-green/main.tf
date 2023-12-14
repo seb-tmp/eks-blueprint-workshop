@@ -64,4 +64,10 @@ module "eks_cluster" {
   gitops_workloads_revision = var.gitops_workloads_revision
   gitops_workloads_path     = var.gitops_workloads_path
 
+  managed_grafana_workspace_id    = var.managed_grafana_workspace_id
+  managed_prometheus_workspace_id = var.managed_grafana_workspace_id
+  grafana_api_key                 = var.grafana_api_key
+
+  addons = var.addons
+
 }

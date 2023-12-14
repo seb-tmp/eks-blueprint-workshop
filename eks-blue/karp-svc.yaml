@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: addon-eks-blueprint-workshop-blue-karpenter:/Service:karpenter/karpenter
+  creationTimestamp: "2023-09-06T17:50:40Z"
+  labels:
+    app.kubernetes.io/instance: karpenter
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: karpenter
+    app.kubernetes.io/version: 0.30.0
+    helm.sh/chart: karpenter-v0.30.0
+  name: karpenter
+  namespace: karpenter
+  resourceVersion: "4987"
+  uid: 22427a2a-ece1-4013-9eaf-f935b48ab28d
+spec:
+  clusterIP: 172.20.90.72
+  clusterIPs:
+  - 172.20.90.72
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http-metrics
+    port: 8000
+    protocol: TCP
+    targetPort: http-metrics
+  - name: https-webhook
+    port: 8443
+    protocol: TCP
+    targetPort: https-webhook
+  selector:
+    app.kubernetes.io/instance: karpenter
+    app.kubernetes.io/name: karpenter
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

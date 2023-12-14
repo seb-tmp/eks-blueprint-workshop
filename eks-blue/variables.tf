@@ -10,6 +10,12 @@ variable "environment_name" {
   default     = "eks-blueprint"
 }
 
+variable "hosted_zone_name" {
+  type        = string
+  description = "Route53 domain for the cluster."
+  default     = ""
+}
+
 variable "ingress_type" {
   type        = string
   description = "Type of ingress to uses (alb | nginx | ...). this parameter will be sent to arocd via gitops bridge"
@@ -81,4 +87,67 @@ variable "gitops_addons_revision" {
   type        = string
   description = "Git repository revision/branch/ref for addons"
   default     = "HEAD"
+}
+
+variable "managed_prometheus_workspace_id" {
+  description = "Amazon Managed Service for Prometheus Workspace ID"
+  type        = string
+  default     = ""
+}
+
+variable "managed_grafana_workspace_id" {
+  description = "Amazon Managed Grafana workspace ID"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_api_key" {
+  description = "API key for authorizing the Grafana provider to make changes to Amazon Managed Grafana"
+  type        = string
+  sensitive   = true
+}
+
+variable "addons" {
+  description = "Kubernetes addons"
+  type        = any
+  default = {
+    enable_cert_manager                          = false
+    enable_aws_efs_csi_driver                    = false
+    enable_aws_fsx_csi_driver                    = false
+    enable_aws_cloudwatch_metrics                = false
+    enable_aws_privateca_issuer                  = false
+    enable_cluster_autoscaler                    = false
+    enable_external_dns                          = false
+    enable_external_secrets                      = false
+    enable_aws_load_balancer_controller          = false
+    enable_aws_for_fluentbit                     = false
+    enable_aws_node_termination_handler          = false
+    enable_karpenter                             = false
+    enable_velero                                = false
+    enable_aws_gateway_api_controller            = false
+    enable_aws_ebs_csi_resources                 = false # generate gp2 and gp3 storage classes for ebs-csi
+    enable_aws_secrets_store_csi_driver_provider = false
+    enable_ack_apigatewayv2                      = false
+    enable_ack_dynamodb                          = false
+    enable_ack_s3                                = false
+    enable_ack_rds                               = false
+    enable_ack_prometheusservice                 = false
+    enable_ack_emrcontainers                     = false
+    enable_ack_sfn                               = false
+    enable_ack_eventbridge                       = false
+    enable_ack_iam                               = false
+    enable_aws_argocd_ingress                    = false
+
+    enable_argo_rollouts            = false
+    enable_argo_workflows           = false
+    enable_gpu_operator             = false
+    enable_kube_prometheus_stack    = false
+    enable_ingress_nginx            = false
+    enable_kyverno                  = false
+    enable_metrics_server           = false
+    enable_prometheus_adapter       = false
+    enable_secrets_store_csi_driver = false
+    enable_vpa                      = false
+    enable_foo                      = false # you can add any addon here, make sure to update the gitops repo with the corresponding application set
+  }
 }

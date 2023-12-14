@@ -21,6 +21,12 @@ variable "cluster_version" {
   default     = "1.25"
 }
 
+variable "hosted_zone_name" {
+  type        = string
+  description = "Route53 domain for the cluster."
+  default     = ""
+}
+
 variable "gitops_addons_org" {
   type        = string
   description = "Git repository org/user contains for addons"
@@ -93,4 +99,27 @@ variable "argocd_secret_manager_name_suffix" {
   type        = string
   description = "Name of secret manager secret for ArgoCD Admin UI Password"
   default     = "argocd-admin-secret"
+}
+
+variable "managed_prometheus_workspace_id" {
+  description = "Amazon Managed Service for Prometheus Workspace ID"
+  type        = string
+  default     = ""
+}
+
+variable "managed_grafana_workspace_id" {
+  description = "Amazon Managed Grafana workspace ID"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_api_key" {
+  description = "API key for authorizing the Grafana provider to make changes to Amazon Managed Grafana"
+  type        = string
+  sensitive   = true
+}
+
+variable "addons" {
+  description = "Kubernetes addons"
+  type        = any
 }

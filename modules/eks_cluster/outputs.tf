@@ -45,9 +45,15 @@ output "gitops_metadata" {
   sensitive   = true
 }
 
-# output "debug" {
-#   description = "debug output"
-#   #value = data.template_file.addons_template.rendered
-#   value = data.template_file.workloads_template.rendered
-#   #value = file("${path.module}/../../bootstrap/addons.yaml")
+output "debug" {
+  description = "debug output"
+  #value = data.template_file.addons_template.rendered
+  value = module.eks_ack_addons.gitops_metadata
+  #value = file("${path.module}/../../bootstrap/addons.yaml")
+}
+
+# # output "grafana_dashboard_urls" {
+#   description = "URLs for dashboards created"
+#   value       = module.managed_prometheus_monitoring.grafana_dashboard_urls
+#   #condition = var.managed_grafana_workspace_id != ""
 # }

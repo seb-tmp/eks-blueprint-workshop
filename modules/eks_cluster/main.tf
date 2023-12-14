@@ -4,8 +4,6 @@ provider "aws" {
   alias  = "virginia"
 }
 
-
-
 # Find the user currently in use by AWS
 data "aws_caller_identity" "current" {}
 
@@ -130,6 +128,34 @@ module "eks" {
 data "aws_iam_role" "eks_admin_role_name" {
   count = local.eks_admin_role_name != "" ? 1 : 0
   name  = local.eks_admin_role_name
+}
+
+################################################################################
+# Allow flow from VPC Lattice to EKS cluster
+################################################################################
+
+# Lookup VPC Lattice prefix list IDs
+data "aws_ec2_managed_prefix_list" "vpc_lattice" {
+  name = "com.amazonaws.${local.region}.vpc-lattice"
+}
+
+data "aws_ec2_managed_prefix_list" "vpc_lattice_ipv6" {
+  name = "com.amazonaws.${local.region}.ipv6.vpc-lattice"
+}
+
+# Authorize ingress from prefix lists to EKS cluster security group
+resource "aws_security_group_rule" "vpc_lattice_ingress" {
+  security_group_id = module.eks.cluster_primary_security_group_id
+
+  prefix_list_ids = [
+    data.aws_ec2_managed_prefix_list.vpc_lattice.id,
+    data.aws_ec2_managed_prefix_list.vpc_lattice_ipv6.id
+  ]
+
+  type      = "ingress"
+  from_port = 0
+  to_port   = 0
+  protocol  = "-1"
 }
 
 ################################################################################
@@ -300,6 +326,14 @@ module "eks_blueprints_dev_teams" {
 }
 
 ################################################################################
+# External-DNS - retrieve Hosted Zone
+################################################################################
+data "aws_route53_zone" "sub" {
+  name         = local.hosted_zone_name
+  private_zone = true
+}
+
+################################################################################
 # GitOps Bridge: Private ssh keys for git
 ################################################################################
 # Uncomment to uses git secret
@@ -324,13 +358,13 @@ resource "kubernetes_secret" "git_secrets" {
     git-addons = {
       type = "git"
       url  = local.gitops_addons_url
-      # uncomment if you want to uses private repo wigh "git@github.com:xxx" syntax
+      # comment if you want to uses public repo wigh syntax "https://github.com/xxx" syntax, uncomment when using syntax "git@github.com:xxx"
       #sshPrivateKey = data.aws_secretsmanager_secret_version.workload_repo_secret.secret_string
     }
     git-workloads = {
       type = "git"
       url  = local.gitops_workloads_url
-      # uncomment if you want to uses private repo wigh "git@github.com:xxx" syntax
+      # comment if you want to uses public repo wigh syntax "https://github.com/xxx" syntax, uncomment when using syntax "git@github.com:xxx"
       #sshPrivateKey = data.aws_secretsmanager_secret_version.workload_repo_secret.secret_string
     }
   }
@@ -345,27 +379,20 @@ resource "kubernetes_secret" "git_secrets" {
 }
 
 ################################################################################
-# GitOps Bridge: Metadata
-################################################################################
-module "gitops_bridge_metadata" {
-  source = "github.com/gitops-bridge-dev/gitops-bridge-argocd-metadata-terraform?ref=v1.0.0"
-
-  cluster_name = module.eks.cluster_name
-  metadata     = local.addons_metadata
-  environment  = local.environment
-  addons       = local.addons
-}
-
-################################################################################
 # GitOps Bridge: Bootstrap
 ################################################################################
 
 module "gitops_bridge_bootstrap" {
-  source = "github.com/gitops-bridge-dev/gitops-bridge-argocd-bootstrap-terraform?ref=v1.0.0"
+  source = "github.com/gitops-bridge-dev/gitops-bridge-argocd-bootstrap-terraform?ref=v2.0.0"
 
-  argocd_cluster               = module.gitops_bridge_metadata.argocd
-  argocd_bootstrap_app_of_apps = local.argocd_bootstrap_app_of_apps
-  #argocd                       = { create_namespace = false }
+  cluster = {
+    cluster_name = module.eks.cluster_name
+    environment  = local.environment
+    metadata     = local.addons_metadata
+    addons       = local.addons
+  }
+  apps = local.argocd_apps
+
   argocd = {
     create_namespace = false
     set = [
@@ -388,7 +415,9 @@ module "gitops_bridge_bootstrap" {
 # EKS Blueprints Addons
 ################################################################################
 module "eks_blueprints_addons" {
-  source = "aws-ia/eks-blueprints-addons/aws"
+  #source = "aws-ia/eks-blueprints-addons/aws"
+  #version = "~> 1.11.0" #ensure to update this to the latest/desired version
+  source = "github.com/aws-ia/terraform-aws-eks-blueprints-addons?ref=gw_v1"
 
   cluster_name      = module.eks.cluster_name
   cluster_endpoint  = module.eks.cluster_endpoint
@@ -401,10 +430,10 @@ module "eks_blueprints_addons" {
   eks_addons = {
 
     # Remove for workshop as ebs-csi is long to provision (15mn)
-    # aws-ebs-csi-driver = {
-    #   most_recent              = true
-    #   service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
-    # }
+    aws-ebs-csi-driver = {
+      most_recent              = true
+      service_account_role_arn = module.ebs_csi_driver_irsa.iam_role_arn
+    }
     coredns = {
       most_recent = true
     }
@@ -430,23 +459,30 @@ module "eks_blueprints_addons" {
   }
 
   # EKS Blueprints Addons
-  enable_cert_manager = try(local.aws_addons.enable_cert_manager, false)
-  #enable_aws_ebs_csi_resources  = try(local.aws_addons.enable_aws_ebs_csi_resources, false)
-  enable_aws_efs_csi_driver     = try(local.aws_addons.enable_aws_efs_csi_driver, false)
-  enable_aws_fsx_csi_driver     = try(local.aws_addons.enable_aws_fsx_csi_driver, false)
-  enable_aws_cloudwatch_metrics = try(local.aws_addons.enable_aws_cloudwatch_metrics, false)
-  enable_aws_privateca_issuer   = try(local.aws_addons.enable_aws_privateca_issuer, false)
-  enable_cluster_autoscaler     = try(local.aws_addons.enable_cluster_autoscaler, false)
-  enable_external_dns           = try(local.aws_addons.enable_external_dns, false)
-  #external_dns_route53_zone_arns = [data.aws_route53_zone.sub.arn]
-  enable_external_secrets               = try(local.aws_addons.enable_external_secrets, false)
-  enable_aws_load_balancer_controller   = try(local.aws_addons.enable_aws_load_balancer_controller, false)
-  enable_fargate_fluentbit              = try(local.aws_addons.enable_fargate_fluentbit, false)
-  enable_aws_for_fluentbit              = try(local.aws_addons.enable_aws_for_fluentbit, false)
-  enable_aws_node_termination_handler   = try(local.aws_addons.enable_aws_node_termination_handler, false)
-  aws_node_termination_handler_asg_arns = [for asg in module.eks.self_managed_node_groups : asg.autoscaling_group_arn]
-  enable_karpenter                      = try(local.aws_addons.enable_karpenter, false)
-  enable_velero                         = try(local.aws_addons.enable_velero, false)
+  enable_cert_manager                 = try(local.aws_addons.enable_cert_manager, false)
+  enable_aws_efs_csi_driver           = try(local.aws_addons.enable_aws_efs_csi_driver, false)
+  enable_aws_fsx_csi_driver           = try(local.aws_addons.enable_aws_fsx_csi_driver, false)
+  enable_aws_cloudwatch_metrics       = try(local.aws_addons.enable_aws_cloudwatch_metrics, false)
+  enable_aws_privateca_issuer         = try(local.aws_addons.enable_aws_privateca_issuer, false)
+  enable_cluster_autoscaler           = try(local.aws_addons.enable_cluster_autoscaler, false)
+  enable_external_dns                 = try(local.aws_addons.enable_external_dns, false)
+  external_dns_route53_zone_arns      = try([data.aws_route53_zone.sub.arn], [])
+  enable_external_secrets             = try(local.aws_addons.enable_external_secrets, false)
+  enable_aws_load_balancer_controller = try(local.aws_addons.enable_aws_load_balancer_controller, false)
+  aws_load_balancer_controller = {
+    service_account_name = "aws-lb-sa"
+  }
+  enable_fargate_fluentbit                   = try(local.aws_addons.enable_fargate_fluentbit, false)
+  enable_aws_for_fluentbit                   = try(local.aws_addons.enable_aws_for_fluentbit, false)
+  enable_aws_node_termination_handler        = try(local.aws_addons.enable_aws_node_termination_handler, false)
+  aws_node_termination_handler_asg_arns      = [for asg in module.eks.self_managed_node_groups : asg.autoscaling_group_arn]
+  enable_karpenter                           = try(local.aws_addons.enable_karpenter, false)
+  karpenter_enable_instance_profile_creation = false # Determines whether Karpenter will be allowed to create the IAM instance profile (v1beta1) or if Terraform will (v1alpha1)
+  karpenter = {
+    #karpenter_enable_instance_profile_creation = false
+  }
+
+  enable_velero = try(local.aws_addons.enable_velero, false)
   #velero = {
   #  s3_backup_location = "${module.velero_backup_s3_bucket.s3_bucket_arn}/backups"
   #}
@@ -474,6 +510,30 @@ module "ebs_csi_driver_irsa" {
   tags = local.tags
 }
 
+################################################################################
+# ACK Addons
+################################################################################
+
+module "eks_ack_addons" {
+  #source = "aws-ia/eks-ack-addons/aws"
+  #version = "2.1.0"
+  source = "github.com/allamand/terraform-aws-eks-ack-addons?ref=ack_iam"
+
+
+  # Cluster Info
+  cluster_name      = module.eks.cluster_name
+  cluster_endpoint  = module.eks.cluster_endpoint
+  oidc_provider_arn = module.eks.oidc_provider_arn
+
+  create_kubernetes_resources = false
+
+  # Controllers to enable
+  enable_iam         = try(local.aws_addons.enable_ack_iam, false)
+  enable_eventbridge = try(local.aws_addons.enable_ack_eventbridge, false)
+
+  tags = local.tags
+}
+
 module "vpc_cni_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "~> 5.20"
@@ -495,8 +555,15 @@ module "vpc_cni_irsa" {
 
 ################################################################################
 # Security group from external load Balancer defined in environment
-################################################################################
+# ################################################################################
+data "external" "check_alb_security_group_rule_80" {
+  program = ["${path.module}/check_aws_security_group_rule.sh", "80", module.eks.cluster_primary_security_group_id, data.aws_security_group.alb_sg[0].id]
+}
+data "external" "check_alb_security_group_rule_10254" {
+  program = ["${path.module}/check_aws_security_group_rule.sh", "10254", module.eks.cluster_primary_security_group_id, data.aws_security_group.alb_sg[0].id]
+}
 resource "aws_security_group_rule" "alb" {
+  count                    = data.external.check_alb_security_group_rule_80.result == "true" ? 0 : 1 # Create only if it doesn't exist
   security_group_id        = module.eks.cluster_primary_security_group_id
   type                     = "ingress"
   from_port                = 80
@@ -505,8 +572,9 @@ resource "aws_security_group_rule" "alb" {
   description              = "Ingress from environment ALB security group"
   source_security_group_id = data.aws_security_group.alb_sg[0].id
 }
-#For health check
+
 resource "aws_security_group_rule" "alb_10254" {
+  count                    = data.external.check_alb_security_group_rule_10254.result == "true" ? 0 : 1 # Create only if it doesn't exist
   security_group_id        = module.eks.cluster_primary_security_group_id
   type                     = "ingress"
   from_port                = 10254

@@ -1,0 +1,29 @@
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURCVENDQWUyZ0F3SUJBZ0lJSWQ0N2FRdllvM1V3RFFZSktvWklodmNOQVFFTEJRQXdGVEVUTUJFR0ExVUUKQXhNS2EzVmlaWEp1WlhSbGN6QWVGdzB5TXpBNU1EUXhPREkwTlROYUZ3MHpNekE1TURFeE9ESTBOVE5hTUJVeApFekFSQmdOVkJBTVRDbXQxWW1WeWJtVjBaWE13Z2dFaU1BMEdDU3FHU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLCkFvSUJBUURRL0k5Ty83R2lFS1FEY0JkRUx6NVoxWjVETTdyd1hzM2JKellSWnpReHhaUTJCcGE3RlB5SWRzbzQKSjZ2b3lxSm1NaDd4b1JqSUkzSGY5aG5Ldi90cStUU1IrRWtLaStqN0d4QmZpRzJGSzRSdktUZnZWbExJakNoQgo1R1ZCaXpRQ0JicUxaazFCNjE0K05maTZ6RlRaaXdiVnNVRnF4dEhvV1krYjAxN0xaUDlQbTBLTVpLTHpzdXBFClV2NmlhdjRsaUthY1VHdjQzV1hYOG5LRHJLYm9xNTJpLzh3UWdiUkcxYUZhYVZrdlNTeEpuV3YwY2NXdzgreWUKOFh2ZWllZWhDc1RQSjE5N0VSWVlJb3RKRVMycG5aNno2ZVhwMExQODRhYmNxTWhnekl0dDJ0K1Q0dHVnMzViRgpTTE8zdElpZkRETEZvOWFGSnBXVTl6NndrZVIxQWdNQkFBR2pXVEJYTUE0R0ExVWREd0VCL3dRRUF3SUNwREFQCkJnTlZIUk1CQWY4RUJUQURBUUgvTUIwR0ExVWREZ1FXQkJTTVhLajVBWjJ0UVAxL0ZqQ1AzUnBybFUwTjhEQVYKQmdOVkhSRUVEakFNZ2dwcmRXSmxjbTVsZEdWek1BMEdDU3FHU0liM0RRRUJDd1VBQTRJQkFRQjgraTIwcUxvbApPQXdPa01uQ0Jpa2drQzdZUFlDTmFsL2xSMzYxaTlFbVE0SWtxM09YQjFkbUd6SktjWGJjemFuWFhpWkNkZDJkCnRGY0pjMHBVZ3VRZW11RGVDaVRjN0tNMFRWMnBMdDZ0dW9PeWtoaUdRN2hWSDdVb0wzNGptK1FBMzdUWVdjR3UKb0lsSGNsZGwyU0lXNklibVN2b0dIVzJqK0lKSzJPVldSRUF1UDIyOXkwcUxVOGV1NVVCdFBQaU0zeW5Wc2dIZwpQUmIraXc1UmxsV1lLU25YUEpLQ0RabHZZczlDbkk2NzY2ZmFyV0ErUUwwYWFuVkkvVXBuem93dms5QTA5QnZoCko2Y29iRzhKS29zSFZ6elJpOTdKS3REQTg5dzNqa25rRmtPR3k1WWZZRVkyMXlwNzBwT3hDYWxoZ3dIY0d1N0MKUHN5RWwzWUNvSmZCCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    server: https://817B53832EFFB888AF5F7018F27D340B.sk1.eu-west-1.eks.amazonaws.com
+  name: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+contexts:
+- context:
+    cluster: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+    user: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+  name: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+current-context: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+kind: Config
+preferences: {}
+users:
+- name: arn:aws:eks:eu-west-1:382076407153:cluster/eks-blueprint-workshop-pink
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      args:
+      - --region
+      - eu-west-1
+      - eks
+      - get-token
+      - --cluster-name
+      - eks-blueprint-workshop-pink
+      - --output
+      - json
+      command: aws

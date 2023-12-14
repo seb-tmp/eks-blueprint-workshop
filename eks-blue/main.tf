@@ -49,6 +49,7 @@ module "eks_cluster" {
   environment_name    = var.environment_name
   eks_admin_role_name = var.eks_admin_role_name
   ingress_type        = var.ingress_type
+  hosted_zone_name    = var.hosted_zone_name
 
   aws_secret_manager_git_private_ssh_key_name = var.aws_secret_manager_git_private_ssh_key_name
   argocd_secret_manager_name_suffix           = var.argocd_secret_manager_name_suffix
@@ -63,5 +64,11 @@ module "eks_cluster" {
   gitops_workloads_repo     = var.gitops_workloads_repo
   gitops_workloads_revision = var.gitops_workloads_revision
   gitops_workloads_path     = var.gitops_workloads_path
+
+  managed_grafana_workspace_id    = var.managed_grafana_workspace_id
+  managed_prometheus_workspace_id = var.managed_grafana_workspace_id
+  grafana_api_key                 = var.grafana_api_key
+
+  addons = var.addons
 
 }

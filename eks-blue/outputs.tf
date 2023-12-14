@@ -29,7 +29,7 @@ output "gitops_metadata" {
   sensitive   = true
 }
 
-# output "debug" {
-#   description = "debug output"
-#   value       = module.eks_cluster.debug
-# }
+output "debug" {
+  description = "debug output"
+  value       = module.eks_cluster.debug
+}
