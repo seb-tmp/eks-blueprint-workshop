@@ -1,4 +1,3 @@
----
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
@@ -25,7 +24,7 @@ spec:
                 - path: '{{.metadata.annotations.gitops_workloads_path}}/*'
   template:
     metadata:
-      name: 'workload-{{.name}}'
+      name: 'bootstrap-workload-{{.name}}'
     spec:
       project: default
       sources:
@@ -34,7 +33,7 @@ spec:
           ref: values
           path: '{{.metadata.annotations.gitops_workloads_path}}'
           helm:
-            releaseName: 'workload-{{.name}}'
+            releaseName: 'bootstrap-workload-{{.name}}'
             ignoreMissingValueFiles: true
             values: |
               "account": "{{.metadata.annotations.aws_account_id}}"
@@ -56,11 +55,10 @@ spec:
                   "ecsfrontend_route53_weight": {{default "0" .metadata.annotations.ecsfrontend_route53_weight}}
                   "host": {{ default "" .metadata.annotations.eks_cluster_domain }}
                   "type": "{{.metadata.annotations.ingress_type}}"
-                "karpenterInstanceProfile": "{{.metadata.annotations.karpenter_node_instance_profile_name}}"
+                "karpenterNodeIAMRoleName": "{{.metadata.annotations.karpenter_node_iam_role_name}}"
                 "target_group_arn": {{ default "" .metadata.annotations.target_group_arn }}
                 "external_lb_url": {{ if index .metadata.annotations "external_lb_dns" }} http://{{ .metadata.annotations.external_lb_dns }}{{ else }}{{ end }}
       destination:
-        #namespace: '{{metadata.annotations.metadata_aws_cluster_autoscaler_namespace}}'
         name: '{{.name}}'
       syncPolicy:
         automated: {}
